@@ -163,23 +163,9 @@ export default async function ProductPage({ params }: Args) {
   )
 }
 
-export async function generateStaticParams() {
-  const payload = await getPayload({ config })
-
-  const products = await payload.find({
-    collection: 'products',
-    where: {
-      status: {
-        equals: 'published',
-      },
-    },
-    limit: 1000,
-  })
-
-  return products.docs.map((product) => ({
-    slug: product.slug,
-  }))
-}
+// Static generation disabled for Railway deployment
+// Pages will be generated on-demand at runtime
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: Args) {
   const { slug } = await params
