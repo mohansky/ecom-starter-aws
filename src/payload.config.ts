@@ -1,6 +1,6 @@
 import { s3Storage } from '@payloadcms/storage-s3'
 import { resendAdapter } from '@payloadcms/email-resend'
-import { sqliteAdapter } from '@payloadcms/db-sqlite'
+import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
@@ -45,10 +45,9 @@ export default buildConfig({
     defaultFromName: 'Ecom Starter',
     apiKey: process.env.RESEND_API_KEY || '',
   }),
-  db: sqliteAdapter({
-    client: {
-      url: process.env.DATABASE_URI || '',
-      authToken: process.env.DATABASE_AUTH_TOKEN || '',
+  db: postgresAdapter({
+    pool: {
+      connectionString: process.env.DATABASE_URI || process.env.DATABASE_URL || '',
     },
   }),
   sharp,
