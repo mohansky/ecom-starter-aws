@@ -50,23 +50,9 @@ export default async function Page({ params }: Args) {
   )
 }
 
-export async function generateStaticParams() {
-  const payload = await getPayload({ config })
-
-  const pages = await payload.find({
-    collection: 'pages',
-    where: {
-      status: {
-        equals: 'published',
-      },
-    },
-    limit: 1000,
-  })
-
-  return pages.docs.map((page) => ({
-    slug: page.slug.split('/').filter(Boolean),
-  }))
-}
+// Static generation disabled for Railway deployment
+// Pages will be generated on-demand at runtime
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: Args) {
   const { slug } = await params
