@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",
+    "@libsql/linux-x64-musl": "^0.5.22",
     "@payloadcms/db-sqlite": "3.55.0",
     "@payloadcms/email-resend": "^3.55.0",
     "@payloadcms/next": "3.55.0",
