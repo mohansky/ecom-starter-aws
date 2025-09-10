@@ -15,6 +15,11 @@ export default async function Page({ params }: Args) {
   const { slug } = await params
   const slugPath = slug?.join('/') || ''
 
+  // Skip database operations during build
+  if (process.env.SKIP_BUILD_DATABASE) {
+    return notFound()
+  }
+
   const payload = await getPayload({ config })
 
   const pages = await payload.find({
@@ -58,7 +63,16 @@ export async function generateMetadata({ params }: Args) {
   const { slug } = await params
   const slugPath = slug?.join('/') || ''
 
-  const payload = await getPayload({ config })
+  // Skip database operations during build
+  if (process.env.SKIP_BUILD_DATABASE) {
+    return {
+      title: 'Page',
+      description: 'Page content',
+    }
+  }
+
+  try {
+    const payload = await getPayload({ config })
 
   const pages = await payload.find({
     collection: 'pages',
@@ -78,20 +92,27 @@ export async function generateMetadata({ params }: Args) {
     }
   }
 
-  return {
-    title: page.seo?.title || page.title,
-    description: page.seo?.description || page.excerpt,
-    keywords: page.seo?.keywords,
-    openGraph: {
+    return {
       title: page.seo?.title || page.title,
       description: page.seo?.description || page.excerpt,
-      images: page.seo?.ogImage
-        ? [
-            {
-              url: typeof page.seo.ogImage === 'object' ? page.seo.ogImage.url || '' : '',
-            },
-          ]
-        : [],
-    },
+      keywords: page.seo?.keywords,
+      openGraph: {
+        title: page.seo?.title || page.title,
+        description: page.seo?.description || page.excerpt,
+        images: page.seo?.ogImage
+          ? [
+              {
+                url: typeof page.seo.ogImage === 'object' ? page.seo.ogImage.url || '' : '',
+              },
+            ]
+          : [],
+      },
+    }
+  } catch (error) {
+    console.error('Error generating metadata:', error)
+    return {
+      title: 'Page',
+      description: 'Page content',
+    }
   }
 }

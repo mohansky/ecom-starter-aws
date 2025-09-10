@@ -5,14 +5,23 @@ import CustomDataTable from '@/components/DataTable/CustomDataTable'
 import { OrdersColumns } from '@/components/DataTable/Columns/OrdersColumn'
 
 export default async function DashboardOrdersPage() {
-  const payload = await getPayload({ config })
+  let orders = { docs: [] as any[] }
+  
+  // Skip database operations during build
+  if (!process.env.SKIP_BUILD_DATABASE) {
+    try {
+    const payload = await getPayload({ config })
 
-  const orders = await payload.find({
-    collection: 'orders',
-    limit: 50,
-    sort: '-createdAt',
-    depth: 2,
-  })
+    orders = await payload.find({
+      collection: 'orders',
+      limit: 50,
+      sort: '-createdAt',
+      depth: 2,
+    })
+    } catch (error) {
+      console.error('Database connection failed:', error)
+    }
+  }
 
   return (
     <div className="border-1 border-border rounded-lg p-6">
@@ -32,3 +41,4 @@ export default async function DashboardOrdersPage() {
     </div>
   )
 }
+export const dynamic = 'force-dynamic'

@@ -18,59 +18,69 @@ type Props = {
 
 export default async function ProductsPage({ searchParams }: Props) {
   const params = await searchParams
-  const payload = await getPayload({ config })
+  let products: Product[] = []
+  let categories: Category[] = []
+  
+  // Skip database operations during build
+  if (!process.env.SKIP_BUILD_DATABASE) {
+    try {
+    const payload = await getPayload({ config })
 
-  // Get all categories for the filter
-  const categoriesResult = await payload.find({
-    collection: 'categories',
-    where: {
-      status: {
-        equals: 'active',
+    // Get all categories for the filter
+    const categoriesResult = await payload.find({
+      collection: 'categories',
+      where: {
+        status: {
+          equals: 'active',
+        },
       },
-    },
-    limit: 100,
-  })
+      limit: 100,
+    })
 
-  // Build query conditions based on filters
-  const whereConditions: Where = {
-    status: {
-      equals: 'published',
-    },
-  }
+    // Build query conditions based on filters
+    const whereConditions: Where = {
+      status: {
+        equals: 'published',
+      },
+    }
 
-  // Filter by categories
-  if (params.categories) {
-    const categoryIds = params.categories.split(',')
-    whereConditions.categories = {
-      in: categoryIds,
+    // Filter by categories
+    if (params.categories) {
+      const categoryIds = params.categories.split(',')
+      whereConditions.categories = {
+        in: categoryIds,
+      }
+    }
+
+    // Filter by tags
+    if (params.tags) {
+      const tagList = params.tags.split(',')
+      whereConditions['tags.tag'] = {
+        in: tagList,
+      }
+    }
+
+    // Search filter
+    if (params.search) {
+      whereConditions.title = {
+        contains: params.search,
+      }
+    }
+
+    // Get filtered products
+    const productsResult = await payload.find({
+      collection: 'products',
+      where: whereConditions,
+      limit: 50,
+      sort: '-createdAt',
+    })
+
+    products = productsResult.docs as Product[]
+    categories = categoriesResult.docs as Category[]
+    } catch (error) {
+      console.error('Database connection failed:', error)
     }
   }
-
-  // Filter by tags
-  if (params.tags) {
-    const tagList = params.tags.split(',')
-    whereConditions['tags.tag'] = {
-      in: tagList,
-    }
-  }
-
-  // Search filter
-  if (params.search) {
-    whereConditions.title = {
-      contains: params.search,
-    }
-  }
-
-  // Get filtered products
-  const productsResult = await payload.find({
-    collection: 'products',
-    where: whereConditions,
-    limit: 50,
-    sort: '-createdAt',
-  })
-
-  const products = productsResult.docs as Product[]
-  const categories = categoriesResult.docs as Category[]
 
   // Get all unique tags from products
   const allTags = new Set<string>()
@@ -142,3 +152,4 @@ export async function generateMetadata({ searchParams }: Props) {
     description: 'Browse our collection of products with advanced filtering options.',
   }
 }
+export const dynamic = 'force-dynamic'

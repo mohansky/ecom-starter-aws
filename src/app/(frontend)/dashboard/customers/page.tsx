@@ -5,14 +5,23 @@ import CustomDataTable from '@/components/DataTable/CustomDataTable'
 import { CustomersColumns } from '@/components/DataTable/Columns/CustomersColumn'
 
 export default async function DashboardCustomersPage() {
-  const payload = await getPayload({ config })
+  let customers = { docs: [] as any[] }
+  
+  // Skip database operations during build
+  if (!process.env.SKIP_BUILD_DATABASE) {
+    try {
+    const payload = await getPayload({ config })
 
-  const customers = await payload.find({
-    collection: 'customers',
-    limit: 50,
-    sort: '-createdAt',
-    depth: 1,
-  })
+    customers = await payload.find({
+      collection: 'customers',
+      limit: 50,
+      sort: '-createdAt',
+      depth: 1,
+    })
+    } catch (error) {
+      console.error('Database connection failed:', error)
+    }
+  }
 
   return (
     <div className="border-1 border-border rounded-lg p-6">
@@ -65,3 +74,4 @@ export default async function DashboardCustomersPage() {
     </div>
   )
 }
+export const dynamic = 'force-dynamic'

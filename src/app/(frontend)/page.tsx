@@ -8,6 +8,9 @@ import {
   FeaturedCategoriesSection,
 } from '@/components/home'
 
+// Force dynamic rendering for Railway deployment
+export const dynamic = 'force-dynamic'
+
 export default async function HomePage() {
   const homePageData = await getHomePage()
 

@@ -3,9 +3,14 @@ import { getPayload } from 'payload'
 import config from '@/payload.config'
 
 export async function getNavigation() {
-  const payload = await getPayload({ config })
+  // Skip database operations during build
+  if (process.env.SKIP_BUILD_DATABASE) {
+    return { mainNav: [], footerNav: [], socialLinks: [] }
+  }
 
   try {
+    const payload = await getPayload({ config })
+
     const navigation = await payload.findGlobal({
       slug: 'navigation',
     })

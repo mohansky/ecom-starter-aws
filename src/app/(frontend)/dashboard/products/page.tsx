@@ -5,14 +5,23 @@ import CustomDataTable from '@/components/DataTable/CustomDataTable'
 import { ProductsColumns } from '@/components/DataTable/Columns/ProductsColumn'
 
 export default async function DashboardProductsPage() {
-  const payload = await getPayload({ config })
+  let products = { docs: [] as any[] }
+  
+  // Skip database operations during build
+  if (!process.env.SKIP_BUILD_DATABASE) {
+    try {
+    const payload = await getPayload({ config })
 
-  const products = await payload.find({
-    collection: 'products',
-    limit: 50,
-    sort: '-createdAt',
-    depth: 2,
-  })
+    products = await payload.find({
+      collection: 'products',
+      limit: 50,
+      sort: '-createdAt',
+      depth: 2,
+    })
+    } catch (error) {
+      console.error('Database connection failed:', error)
+    }
+  }
 
   return (
     <div className="border-1 border-border rounded-lg p-6">
@@ -62,4 +71,4 @@ export default async function DashboardProductsPage() {
       </div>
     </div>
   )
-}
+}export const dynamic = 'force-dynamic'

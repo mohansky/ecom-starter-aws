@@ -9,28 +9,41 @@ import { CategoryPieChart } from '@/components/CategoryPieChart'
 import { ProductsPieChart } from '@/components/ProductsPieChart'
 
 export default async function DashboardPage() {
-  const payload = await getPayload({ config })
+  let recentOrders = { docs: [] as any[] }
+  let allOrders = { docs: [] as any[] }
+  
+  // Skip database operations during build
+  if (!process.env.SKIP_BUILD_DATABASE) {
+    try {
+      const payload = await getPayload({ config })
 
-  const [_ordersCount, _customersCount, recentOrders, allOrders] = await Promise.all([
-    payload.count({ collection: 'orders' }),
-    payload.count({ collection: 'customers' }),
-    payload.find({
-      collection: 'orders',
-      limit: 5,
-      sort: '-createdAt',
-    }),
-    payload.find({
-      collection: 'orders',
-      limit: 1000,
-      sort: '-createdAt',
-      where: {
-        status: {
-          not_equals: 'cancelled',
-        },
-      },
-      depth: 2,
-    }),
-  ])
+      const [_ordersCount, _customersCount, recentOrdersResult, allOrdersResult] = await Promise.all([
+        payload.count({ collection: 'orders' }),
+        payload.count({ collection: 'customers' }),
+        payload.find({
+          collection: 'orders',
+          limit: 5,
+          sort: '-createdAt',
+        }),
+        payload.find({
+          collection: 'orders',
+          limit: 1000,
+          sort: '-createdAt',
+          where: {
+            status: {
+              not_equals: 'cancelled',
+            },
+          },
+          depth: 2,
+        }),
+      ])
+      
+      recentOrders = recentOrdersResult
+      allOrders = allOrdersResult
+    } catch (error) {
+      console.error('Database connection failed:', error)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -60,3 +73,4 @@ export default async function DashboardPage() {
     </div>
   )
 }
+export const dynamic = 'force-dynamic'

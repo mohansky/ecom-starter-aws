@@ -19,6 +19,11 @@ type Args = {
 export default async function ProductPage({ params }: Args) {
   const { slug } = await params
 
+  // Skip database operations during build
+  if (process.env.SKIP_BUILD_DATABASE) {
+    return notFound()
+  }
+
   const payload = await getPayload({ config })
 
   const products = await payload.find({
@@ -170,31 +175,47 @@ export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: Args) {
   const { slug } = await params
 
-  const payload = await getPayload({ config })
-
-  const products = await payload.find({
-    collection: 'products',
-    where: {
-      slug: {
-        equals: slug,
-      },
-    },
-    limit: 1,
-  })
-
-  const product = products.docs[0] as Product
-
-  if (!product) {
+  // Skip database operations during build
+  if (process.env.SKIP_BUILD_DATABASE) {
     return {
-      title: 'Product Not Found',
+      title: 'Product',
+      description: 'Product page',
     }
   }
 
-  return {
-    title: product.seo?.title || product.title,
-    description:
-      product.seo?.description ||
-      `Shop ${product.title} for ${formatPrice ? formatPrice(product.price) : product.price}`,
-    keywords: product.seo?.keywords,
+  try {
+    const payload = await getPayload({ config })
+
+    const products = await payload.find({
+      collection: 'products',
+      where: {
+        slug: {
+          equals: slug,
+        },
+      },
+      limit: 1,
+    })
+
+    const product = products.docs[0] as Product
+
+    if (!product) {
+      return {
+        title: 'Product Not Found',
+      }
+    }
+
+    return {
+      title: product.seo?.title || product.title,
+      description:
+        product.seo?.description ||
+        `Shop ${product.title} for ${formatPrice ? formatPrice(product.price) : product.price}`,
+      keywords: product.seo?.keywords,
+    }
+  } catch (error) {
+    console.error('Error generating metadata:', error)
+    return {
+      title: 'Product',
+      description: 'Product page',
+    }
   }
 }
