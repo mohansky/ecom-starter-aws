@@ -14,12 +14,19 @@ interface CartItem {
   quantity: number | string
 }
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-})
-
 export async function POST(request: NextRequest) {
+  // Initialize Razorpay inside the function to avoid build-time errors
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    return NextResponse.json(
+      { error: 'Razorpay configuration is missing' },
+      { status: 500 }
+    )
+  }
+
+  const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  })
   try {
     const body = await request.json()
 
