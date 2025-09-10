@@ -25,6 +25,18 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Build arguments for environment variables needed during build
+ARG PAYLOAD_SECRET
+ARG DATABASE_URI
+ARG DATABASE_AUTH_TOKEN
+ARG NEXT_PUBLIC_SITE_URL
+
+# Set environment variables for build
+ENV PAYLOAD_SECRET=$PAYLOAD_SECRET
+ENV DATABASE_URI=$DATABASE_URI
+ENV DATABASE_AUTH_TOKEN=$DATABASE_AUTH_TOKEN
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
