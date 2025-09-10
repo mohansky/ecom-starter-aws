@@ -60,9 +60,8 @@ ENV NODE_ENV production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Create public folder and copy if it exists in builder
-RUN mkdir -p ./public
-COPY --from=builder /app/public/* ./public/ || true
+# Copy public folder (will be created by our mkdir command above)
+COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache
 RUN mkdir .next
