@@ -3,7 +3,6 @@ import { withPayload } from '@payloadcms/next/withPayload'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Your Next.js config here
-  output: 'standalone',
   serverExternalPackages: ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
   webpack: (webpackConfig, { isServer }) => {
     webpackConfig.resolve.extensionAlias = {
