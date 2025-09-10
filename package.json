@@ -46,6 +46,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "16.4.7",
     "graphql": "^16.8.1",
+    "libsql": "^0.5.22",
     "lucide-react": "^0.536.0",
     "next": "15.4.4",
     "payload": "3.55.0",
