@@ -23,6 +23,7 @@ interface AddToCartFormProps {
 
 export function AddToCartForm({ product }: AddToCartFormProps) {
   const { addToCart, isInCart, getCartItem } = useShoppingCart()
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
 
   const groupedVariants =
     product.variants?.reduce(
@@ -122,43 +123,52 @@ export function AddToCartForm({ product }: AddToCartFormProps) {
   }
 
   const handleAddToCart = async () => {
-    // Add each selected variant separately to cart
-    for (const selection of Object.values(variantSelections)) {
-      if (selection.quantity > 0) {
-        const variant: CartVariant = {
-          name: selection.variant.name,
-          value: selection.variant.value,
-          priceModifier: selection.variant.priceModifier ?? 0,
-          quantity: selection.variant.quantity,
-          weight: selection.variant.weight,
-          dimensions: selection.variant.dimensions,
-          sku: selection.variant.sku,
-        }
-        addToCart(product, [variant], selection.quantity)
+    setIsAddingToCart(true)
+    
+    try {
+      // Add each selected variant separately to cart
+      for (const selection of Object.values(variantSelections)) {
+        if (selection.quantity > 0) {
+          const variant: CartVariant = {
+            name: selection.variant.name,
+            value: selection.variant.value,
+            priceModifier: selection.variant.priceModifier ?? 0,
+            quantity: selection.variant.quantity,
+            weight: selection.variant.weight,
+            dimensions: selection.variant.dimensions,
+            sku: selection.variant.sku,
+          }
+          addToCart(product, [variant], selection.quantity)
 
-        // Update stock if tracking is enabled
+          // Update stock if tracking is enabled
+          if (product.trackQuantity) {
+            await updateStock(
+              product.id.toString(),
+              selection.quantity,
+              selection.variant.id || undefined,
+            )
+          }
+        }
+      }
+
+      // Add base product if quantity > 0
+      if (quantity > 0) {
+        addToCart(product, [], quantity)
+
+        // Update stock for base product
         if (product.trackQuantity) {
-          await updateStock(
-            product.id.toString(),
-            selection.quantity,
-            selection.variant.id || undefined,
-          )
+          await updateStock(product.id.toString(), quantity)
         }
       }
+
+      // Reset form
+      resetForm()
+    } catch (error) {
+      console.error('Error adding to cart:', error)
+      // Optionally show an error message to the user
+    } finally {
+      setIsAddingToCart(false)
     }
-
-    // Add base product if quantity > 0
-    if (quantity > 0) {
-      addToCart(product, [], quantity)
-
-      // Update stock for base product
-      if (product.trackQuantity) {
-        await updateStock(product.id.toString(), quantity)
-      }
-    }
-
-    // Reset form
-    resetForm()
   }
 
   const resetForm = () => {
@@ -436,17 +446,25 @@ export function AddToCartForm({ product }: AddToCartFormProps) {
       <Button
         onClick={handleAddToCart}
         disabled={
+          isAddingToCart ||
           isOutOfStock ||
           (quantity === 0 && !Object.values(variantSelections).some((s) => s.quantity > 0))
         }
         className="w-full"
         size="lg"
       >
-        {isOutOfStock
-          ? 'Out of Stock'
-          : quantity === 0 && !Object.values(variantSelections).some((s) => s.quantity > 0)
-            ? 'Select Items to Add'
-            : 'Add to Cart'}
+        {isAddingToCart ? (
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            Adding to Cart...
+          </div>
+        ) : isOutOfStock ? (
+          'Out of Stock'
+        ) : quantity === 0 && !Object.values(variantSelections).some((s) => s.quantity > 0) ? (
+          'Select Items to Add'
+        ) : (
+          'Add to Cart'
+        )}
       </Button>
     </div>
   )

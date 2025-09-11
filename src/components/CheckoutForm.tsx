@@ -65,6 +65,7 @@ interface CustomerInfo {
 export function CheckoutForm({ cart }: CheckoutFormProps) {
   const { clearCart } = useShoppingCart()
   const [loading, setLoading] = useState(false)
+  const [verifyingPayment, setVerifyingPayment] = useState(false)
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
     email: '',
@@ -184,6 +185,9 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
         order_id: orderData.order.id,
         handler: async (response: RazorpayResponse) => {
           try {
+            // Set verification state
+            setVerifyingPayment(true)
+            
             // Verify payment
             const verifyResponse = await fetch('/api/payment/verify', {
               method: 'POST',
@@ -218,15 +222,17 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
             const verifyData = await verifyResponse.json()
 
             if (verifyData.success) {
-              // Payment successful - clear cart and recovery data
+              // Payment successful - clear cart and recovery data just before redirect
               clearCart()
               localStorage.removeItem('checkout_recovery')
               // Redirect to success page with order ID
               window.location.href = `/order-success?orderId=${verifyData.order.id}`
             } else {
+              setVerifyingPayment(false)
               alert('Payment verification failed: ' + verifyData.error)
             }
           } catch (error) {
+            setVerifyingPayment(false)
             console.error('Payment verification error:', error)
             alert('Payment verification failed. Please contact support.')
           }
@@ -284,6 +290,23 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
       
       window.location.href = `/payment-failed?${params.toString()}`
     }
+  }
+
+  if (verifyingPayment) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Processing Payment</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6 text-center py-12">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+            <div className="text-lg font-medium">Verifying your payment...</div>
+            <div className="text-sm text-gray-500">Please don't close this window</div>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

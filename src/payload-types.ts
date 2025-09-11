@@ -633,7 +633,7 @@ export interface Order {
    * Legacy payment ID field - use payment.razorpayPaymentId instead
    */
   paymentId?: string | null;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded' | 'failed';
   notes?: string | null;
   updatedAt: string;
   createdAt: string;

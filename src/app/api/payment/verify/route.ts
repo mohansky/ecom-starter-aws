@@ -127,117 +127,174 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 })
     }
 
+    // Declare orderData variable in scope accessible to both try and catch blocks
+    let orderData: any
+
     // Fetch payment details from Razorpay
     try {
       const payment = await razorpay.payments.fetch(razorpay_payment_id)
       const razorpayOrder = await razorpay.orders.fetch(razorpay_order_id)
 
+      console.log('Payment details:', {
+        id: payment.id,
+        status: payment.status,
+        amount: payment.amount
+      })
+
       // Initialize Payload
-      const payload = await getPayload({ config })
+      let payload
+      try {
+        console.log('Initializing Payload...')
+        payload = await getPayload({ config })
+        console.log('Payload initialized successfully')
+      } catch (payloadInitError) {
+        console.error('Failed to initialize Payload:', payloadInitError)
+        throw new Error(`Database connection failed: ${payloadInitError instanceof Error ? payloadInitError.message : 'Unknown error'}`)
+      }
+
 
       // Calculate order totals
       const subtotal =
         cartDetails?.items?.reduce((sum: number, item: CartItem) => {
           // Use the available price field (basePrice for unit price, totalPrice for item total)
           const itemQuantity =
-            typeof item.quantity === 'string' ? parseInt(item.quantity) : item.quantity
+            typeof item.quantity === 'string' ? parseInt(item.quantity) || 0 : (item.quantity || 0)
           const unitPrice =
             item.basePrice ||
             item.price ||
-            (item.totalPrice ? item.totalPrice / itemQuantity : 0) ||
+            (item.totalPrice && itemQuantity > 0 ? item.totalPrice / itemQuantity : 0) ||
             0
-          return sum + unitPrice * itemQuantity
+          return sum + (Number(unitPrice) || 0) * (Number(itemQuantity) || 0)
         }, 0) || 0
 
       const tax =
-        typeof cartDetails?.tax === 'string' ? parseFloat(cartDetails.tax) : cartDetails?.tax || 0
+        typeof cartDetails?.tax === 'string' ? (parseFloat(cartDetails.tax) || 0) : (Number(cartDetails?.tax) || 0)
       const shippingCost =
         typeof cartDetails?.shippingCost === 'string'
-          ? parseFloat(cartDetails.shippingCost)
-          : cartDetails?.shippingCost || 0
+          ? (parseFloat(cartDetails.shippingCost) || 0)
+          : (Number(cartDetails?.shippingCost) || 0)
       const discount =
         typeof cartDetails?.discount === 'string'
-          ? parseFloat(cartDetails.discount)
-          : cartDetails?.discount || 0
+          ? (parseFloat(cartDetails.discount) || 0)
+          : (Number(cartDetails?.discount) || 0)
       const total = subtotal + tax + shippingCost - discount
 
       // Generate unique order number
       const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
 
-      // Create order in Payload
-      const createdOrder = await payload.create({
-        collection: 'orders',
-        data: {
-          orderNumber,
-          customer: {
-            email: finalCustomerDetails.email,
-            firstName: finalCustomerDetails.firstName,
-            lastName: finalCustomerDetails.lastName,
-            phone: finalCustomerDetails.phone || '',
-          },
-          items:
-            cartDetails?.items?.map((item: CartItem) => {
-              // Use the correct price field from your cart structure
-              const itemQuantity =
-                typeof item.quantity === 'string' ? parseInt(item.quantity) : item.quantity
-              const unitPrice =
-                item.basePrice ||
-                item.price ||
-                (item.totalPrice ? item.totalPrice / itemQuantity : 0) ||
-                0
-              return {
-                product: item.productId || item.id,
-                quantity: itemQuantity,
-                price: unitPrice,
-                total: unitPrice * itemQuantity,
-              }
-            }) || [],
-          shipping: {
-            address1: shippingAddress.address1,
-            address2: shippingAddress.address2 || '',
-            city: shippingAddress.city,
-            state: shippingAddress.state,
-            postalCode: shippingAddress.postalCode,
-            country: shippingAddress.country || 'India',
-          },
-          billing: {
-            sameAsShipping: billingAddress?.sameAsShipping ?? true,
-            address1: billingAddress?.address1 || '',
-            address2: billingAddress?.address2 || '',
-            city: billingAddress?.city || '',
-            state: billingAddress?.state || '',
-            postalCode: billingAddress?.postalCode || '',
-            country: billingAddress?.country || 'India',
-          },
-          subtotal,
-          tax,
-          shipping_cost: shippingCost,
-          discount,
-          total,
-          paymentMethod: 'razorpay',
-          payment: {
-            razorpayOrderId: razorpayOrder.id,
-            razorpayPaymentId: payment.id,
-            razorpaySignature: razorpay_signature,
-            paymentStatus:
-              payment.status === 'captured'
-                ? 'captured'
-                : payment.status === 'authorized'
-                  ? 'authorized'
-                  : payment.status === 'failed'
-                    ? 'failed'
-                    : payment.status === 'refunded'
-                      ? 'refunded'
-                      : 'pending',
-            paymentMethod: payment.method || '',
-            paymentDate: new Date(payment.created_at * 1000).toISOString(),
-            amount: typeof payment.amount === 'string' ? parseInt(payment.amount) : payment.amount,
-          },
-          paymentId: payment.id,
-          status: payment.status === 'captured' ? 'processing' : 'pending',
-          notes: `Payment completed via Razorpay. Method: ${payment.method}`,
+      // Prepare order data with proper type handling and validation
+      orderData = {
+        orderNumber,
+        customer: {
+          email: finalCustomerDetails.email,
+          firstName: finalCustomerDetails.firstName,
+          lastName: finalCustomerDetails.lastName,
+          phone: finalCustomerDetails.phone || '',
         },
+        items: (cartDetails?.items || []).map((item: CartItem) => {
+          const itemQuantity = typeof item.quantity === 'string' ? (parseInt(item.quantity) || 0) : (item.quantity || 0)
+          const unitPrice = item.basePrice || item.price || (item.totalPrice && itemQuantity > 0 ? item.totalPrice / itemQuantity : 0) || 0
+          
+          // Ensure we have a valid product ID
+          const productId = item.productId || item.id
+          if (!productId) {
+            throw new Error(`Missing product ID for item: ${JSON.stringify(item)}`)
+          }
+          
+          return {
+            product: productId,
+            quantity: Number(itemQuantity),
+            price: Number(unitPrice),
+            total: Number((Number(unitPrice) || 0) * (Number(itemQuantity) || 0)),
+          }
+        }),
+        shipping: {
+          address1: shippingAddress.address1,
+          address2: shippingAddress.address2 || '',
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          postalCode: shippingAddress.postalCode,
+          country: shippingAddress.country || 'India',
+        },
+        billing: {
+          sameAsShipping: billingAddress?.sameAsShipping ?? true,
+          address1: billingAddress?.address1 || '',
+          address2: billingAddress?.address2 || '',
+          city: billingAddress?.city || '',
+          state: billingAddress?.state || '',
+          postalCode: billingAddress?.postalCode || '',
+          country: billingAddress?.country || 'India',
+        },
+        subtotal: Number(subtotal),
+        tax: Number(tax),
+        shipping_cost: Number(shippingCost),
+        discount: Number(discount),
+        total: Number(total),
+        paymentMethod: 'razorpay' as const,
+        payment: {
+          razorpayOrderId: razorpayOrder.id,
+          razorpayPaymentId: payment.id,
+          razorpaySignature: razorpay_signature,
+          paymentStatus: payment.status === 'captured' ? 'captured' as const : payment.status === 'authorized' ? 'authorized' as const : payment.status === 'failed' ? 'failed' as const : payment.status === 'refunded' ? 'refunded' as const : 'pending' as const,
+          paymentMethod: payment.method || '',
+          paymentDate: new Date(payment.created_at * 1000),
+          amount: Number(payment.amount),
+        },
+        paymentId: payment.id,
+        status: payment.status === 'captured' ? 'processing' as const : 'pending' as const,
+        notes: `Payment completed via Razorpay. Method: ${payment.method}`,
+      }
+      
+      // Validate critical order data before creating
+      if (!orderData.customer.email || !orderData.customer.firstName || !orderData.customer.lastName) {
+        throw new Error('Missing required customer information')
+      }
+      
+      if (!orderData.items || orderData.items.length === 0) {
+        throw new Error('Order must contain at least one item')
+      }
+      
+      if (!orderData.shipping.address1 || !orderData.shipping.city || !orderData.shipping.state || !orderData.shipping.postalCode) {
+        throw new Error('Missing required shipping address information')
+      }
+      
+      // Validate that the calculated total matches the Razorpay payment amount
+      const razorpayAmountInRupees = Number(payment.amount) / 100 // Razorpay amount is in paise
+      const orderTotalInRupees = total
+      
+      console.log('Amount validation:', {
+        razorpayAmountInRupees,
+        orderTotalInRupees,
+        difference: Math.abs(razorpayAmountInRupees - orderTotalInRupees)
       })
+      
+      // Allow a small tolerance for rounding differences (1 rupee)
+      if (Math.abs(razorpayAmountInRupees - orderTotalInRupees) > 1) {
+        throw new Error(`Order total mismatch: Razorpay amount ₹${razorpayAmountInRupees} vs calculated total ₹${orderTotalInRupees}`)
+      }
+
+      console.log('Creating order with data:', JSON.stringify(orderData, null, 2))
+
+      // Create order in Payload with detailed error handling
+      let createdOrder
+      try {
+        console.log('Attempting to create order in Payload...')
+        createdOrder = await payload.create({
+          collection: 'orders',
+          data: orderData,
+        })
+        console.log('Order created successfully:', createdOrder.id)
+      } catch (payloadError) {
+        console.error('Payload order creation failed:', payloadError)
+        
+        if (payloadError instanceof Error) {
+          console.error('Payload error message:', payloadError.message)
+          console.error('Payload error stack:', payloadError.stack)
+        }
+        
+        // Re-throw with more context
+        throw new Error(`Failed to create order in database: ${payloadError instanceof Error ? payloadError.message : 'Unknown Payload error'}`)
+      }
 
       return NextResponse.json({
         success: true,
@@ -264,10 +321,27 @@ export async function POST(request: NextRequest) {
       })
     } catch (paymentError) {
       console.error('Error processing payment and creating order:', paymentError)
+      
+      // Log the full error details for debugging
+      if (paymentError instanceof Error) {
+        console.error('Error message:', paymentError.message)
+        console.error('Error stack:', paymentError.stack)
+      }
+      
+      // Log the order data that was trying to be created (if available)
+      if (typeof orderData !== 'undefined') {
+        console.error('Order data that failed:', JSON.stringify(orderData, null, 2))
+      }
+      
       return NextResponse.json(
         {
           error: 'Failed to process payment and create order',
           details: paymentError instanceof Error ? paymentError.message : 'Unknown error',
+          debug: process.env.NODE_ENV === 'development' ? {
+            message: paymentError instanceof Error ? paymentError.message : 'Unknown error',
+            stack: paymentError instanceof Error ? paymentError.stack : undefined,
+            orderData: orderData || null
+          } : undefined
         },
         { status: 500 },
       )

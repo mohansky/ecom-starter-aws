@@ -357,6 +357,10 @@ export const Orders: CollectionConfig = {
           label: 'Refunded',
           value: 'refunded',
         },
+        {
+          label: 'Failed',
+          value: 'failed',
+        },
       ],
       defaultValue: 'pending',
       required: true,
@@ -460,16 +464,26 @@ export const Orders: CollectionConfig = {
             }
 
             if (customerId && doc.customerRef !== customerId) {
-              await req.payload.update({
-                collection: 'orders',
-                id: doc.id,
-                data: {
-                  customerRef: customerId,
-                },
-                context: {
-                  preventCustomerUpdate: true,
-                },
-              })
+              try {
+                await req.payload.update({
+                  collection: 'orders',
+                  id: doc.id,
+                  data: {
+                    customerRef: customerId,
+                  },
+                  context: {
+                    preventCustomerUpdate: true,
+                  },
+                })
+              } catch (updateError) {
+                console.error('Failed to update order customerRef:', {
+                  orderId: doc.id,
+                  customerId,
+                  error: updateError instanceof Error ? updateError.message : updateError
+                })
+                // Don't throw the error to prevent the entire order creation from failing
+                // The order will still be created without the customerRef being set
+              }
             }
           }
         }
